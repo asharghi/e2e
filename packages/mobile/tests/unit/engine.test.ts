@@ -91,7 +91,7 @@ describe('manifest', () => {
       expect.objectContaining({ code: 'INVALID_CONFIG', message: 'mobile() has unknown key "sesion"; did you mean "session"?' }),
     );
     expect(() => harness({ bundle: 'com.example' } as never)).toThrow(
-      /^mobile\(\) has unknown key "bundle"; expected one of platform, device, session, snapshot, settle, transition, videoTouches$/,
+      /^mobile\(\) has unknown key "bundle"; expected one of platform, device, session, snapshot, settle, transition, videoTouches, expoDevClient$/,
     );
   });
 
@@ -1583,6 +1583,36 @@ describe('device fixture', () => {
       permission('location', 'deny'),
       fresh,
     ]);
+  });
+
+  it('opens the dev server with the dev menu off on every fresh launch of the pinned app, ahead of the target and test arguments', async () => {
+    const h = harness({ bundleId: 'com.example.app', launchArguments: ['-e2e', 'YES'], expoDevClient: 'http://localhost:8081' });
+    h.fake.respond('apps.open', () => ({ session: 's', appName: 'Example', appBundleId: 'com.example.app', identifiers: {} }));
+    await boot(h);
+    await h.engine.startAttempt!({ attemptId: 'a1', artifactsDir, signal: new AbortController().signal, resolveSecret: noSecrets });
+    const device = fixture(h);
+    const before = h.fake.calls.length;
+    await h.engine.session!.restart!(operation());
+    await device.openApp('com.example.app', { relaunch: true, launchArguments: ['--fresh'] });
+    await device.openApp('com.example.app');
+    await device.openApp('com.other', { relaunch: true });
+    const devClient = ['--initialUrl', 'http://localhost:8081', '-EXDevMenuShowsAtLaunch', 'NO', '-EXDevMenuIsOnboardingFinished', 'YES', '-EXDevMenuShowFloatingActionButton', 'NO'];
+    expect(h.fake.calls.slice(before).map((call) => [call.method, call.args])).toEqual([
+      ['apps.open', { platform: 'ios', app: 'com.example.app', relaunch: true, launchArgs: [...devClient, '-e2e', 'YES'] }],
+      ['apps.open', { platform: 'ios', app: 'com.example.app', relaunch: true, launchArgs: [...devClient, '--fresh'] }],
+      // A foreground-only open and another app launch as before.
+      ['apps.open', { platform: 'ios', app: 'com.example.app' }],
+      ['apps.open', { platform: 'ios', app: 'com.other', relaunch: true }],
+    ]);
+  });
+
+  it('refuses an expoDevClient that is not an http(s) URL, or on Android', () => {
+    expect(() => harness({ expoDevClient: 'localhost:8081' })).toThrowError(
+      expect.objectContaining({ code: 'INVALID_CONFIG', message: 'mobile: `expoDevClient` must be the dev server\'s http(s) URL, got "localhost:8081"' }),
+    );
+    expect(() => harness({ platform: 'android', expoDevClient: 'http://10.0.2.2:8081' })).toThrowError(
+      expect.objectContaining({ code: 'INVALID_CONFIG', message: 'mobile: `expoDevClient` runs on iOS simulators only' }),
+    );
   });
 
   it('launches any app with its own arguments and permissions, moving the session onto it first', async () => {

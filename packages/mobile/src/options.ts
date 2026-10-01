@@ -108,4 +108,12 @@ export interface MobileOptions {
    * daemon that pass can outlast the attempt's `cleanupTimeout`.
    */
   readonly videoTouches?: boolean | undefined;
+  /**
+   * The dev server an Expo development build (`expo-dev-client`) loads, such
+   * as `http://localhost:8081`. iOS simulators only. Every fresh launch of
+   * the pinned app opens this server instead of the dev launcher, with the
+   * dev menu, its onboarding sheet, and its floating action button off, so
+   * nothing covers the app.
+   */
+  readonly expoDevClient?: string | undefined;
 }

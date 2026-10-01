@@ -106,6 +106,39 @@ One test launches with its own through `device.openApp`:
 await device.openApp('com.example.app', { relaunch: true, permissions: { camera: 'deny' } });
 ```
 
+### Expo development builds
+
+A development build (`expo-dev-client`) opens on the dev launcher and loads
+its JavaScript from a dev server. On an iOS simulator, `expoDevClient` names
+that server: every fresh launch of the pinned app opens it directly, with the
+dev menu, its onboarding sheet, and its floating action button off, so
+nothing covers the app. `app.command` starts the server for the run:
+
+```ts title="e2e.config.ts"
+import type { E2EConfig } from 'e2e';
+import { mobile } from '@e2e-dev/mobile';
+
+export default {
+  targets: [
+    {
+      engine: mobile({ platform: 'ios', expoDevClient: 'http://localhost:8081' }),
+      app: {
+        bundleId: 'com.example.app',
+        command: { executable: 'npx', args: ['expo', 'start', '--port', '8081'] },
+        readyUrl: 'http://localhost:8081/status',
+      },
+    },
+  ],
+} satisfies E2EConfig;
+```
+
+The first launch waits for the dev server to bundle the app; a test's first
+check may need a longer timeout than the rest. The options are launch
+arguments that come before the target's and the test's own; a
+foreground-only open and other apps take none. Android is not supported:
+open the server there with `device.openLink` and the build's
+`expo-development-client` link.
+
 ## Several devices
 
 Add a target for each platform:

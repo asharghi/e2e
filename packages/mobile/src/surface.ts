@@ -56,7 +56,7 @@ import {
   type ProjectedSnapshot,
   type RawNode,
 } from './nodes.ts';
-import { DEVICE_PERMISSIONS, type AgentDeviceClient, type ClientFactory, type DevicePermission, type LaunchPermissions, type MobileOptions, type PermissionState } from './options.ts';
+import { DEVICE_PERMISSIONS, type AgentDeviceClient, type ClientFactory, type DevicePermission, type LaunchPermissions, type MobileOptions, type MobilePlatform, type PermissionState } from './options.ts';
 import { maskPng } from './png.ts';
 import { deviceLabel, pinnedApp, type SlotBinding } from './bindings.ts';
 import { assertAppId } from './links.ts';
@@ -290,6 +290,7 @@ const MOBILE_OPTION_KEYS: readonly string[] = Object.keys({
   settle: true,
   transition: true,
   videoTouches: true,
+  expoDevClient: true,
 } satisfies Record<keyof MobileOptions, true>);
 
 /** Every state a permission takes, kept equal to `PermissionState` by the compiler. */
@@ -327,6 +328,23 @@ function transitionMs(transition: MobileOptions['transition']): number {
     throw new ConfigurationError('INVALID_CONFIG', 'mobile: `transition` must be a non-negative integer of milliseconds');
   }
   return budget;
+}
+
+/**
+ * Resolves the `expoDevClient` option to the launch arguments of a fresh
+ * launch. expo-dev-launcher loads the URL after `--initialUrl` instead of
+ * showing the launcher; the `-EXDevMenu…` pairs land in the argument domain,
+ * which outranks the defaults expo-dev-menu registers.
+ */
+function expoDevClientArguments(url: MobileOptions['expoDevClient'], platform: MobilePlatform): readonly string[] {
+  if (url === undefined) return [];
+  if (platform !== 'ios') {
+    throw new ConfigurationError('INVALID_CONFIG', 'mobile: `expoDevClient` runs on iOS simulators only');
+  }
+  if (typeof url !== 'string' || !URL.canParse(url) || !/^https?:$/.test(new URL(url).protocol)) {
+    throw new ConfigurationError('INVALID_CONFIG', `mobile: \`expoDevClient\` must be the dev server's http(s) URL, got ${JSON.stringify(url)}`);
+  }
+  return ['--initialUrl', url, '-EXDevMenuShowsAtLaunch', 'NO', '-EXDevMenuIsOnboardingFinished', 'YES', '-EXDevMenuShowFloatingActionButton', 'NO'];
 }
 
 /** Resolves the `settle` option: the default window, a custom one, or no wait at all. */
@@ -386,6 +404,8 @@ export class AgentDeviceSurface {
   private latestIndex: readonly ProjectedNode[] | undefined;
   /** Budget a control that came with the last action gets to finish arriving; see DEFAULT_TRANSITION_MS. */
   private readonly transitionMs: number;
+  /** Launch arguments every fresh launch of the pinned app leads with: an Expo development build's, else none. */
+  private readonly devClientArguments: readonly string[];
   /**
    * The screen's logical size as last learned from a snapshot with geometry
    * or from the device itself, so a snapshot without geometry (an empty
@@ -402,6 +422,7 @@ export class AgentDeviceSurface {
     this.pool = new DevicePool(options, createClient);
     this.settleOptions = settleOptions(options.settle);
     this.transitionMs = transitionMs(options.transition);
+    this.devClientArguments = expoDevClientArguments(options.expoDevClient, options.platform);
   }
 
   /** Whether the target pins an app for `app.open()`, `app.restart()`, and `app.clearState()` to launch. */
@@ -690,7 +711,9 @@ export class AgentDeviceSurface {
     // app. A foreground-only open of a running app takes no arguments, and a
     // permission change there would terminate the app it means to keep.
     const configured = relaunch && app === this.pinnedApp;
-    const launchArguments = options.launchArguments ?? (configured ? this.app.launchArguments : undefined);
+    const requested = options.launchArguments ?? (configured ? this.app.launchArguments : undefined);
+    // A development build has no JavaScript of its own to run, so a test's own arguments do not replace the dev server's.
+    const launchArguments = configured && this.devClientArguments.length > 0 ? [...this.devClientArguments, ...(requested ?? [])] : requested;
     const permissions = options.permissions ?? (configured ? this.app.permissions : undefined);
     if (permissions !== undefined) await this.presetPermissions(app, permissions, signal);
     await this.open(app, relaunch, launchArguments, signal);
