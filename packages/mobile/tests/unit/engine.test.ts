@@ -268,6 +268,17 @@ describe('lifecycle', () => {
     ]);
   });
 
+  it('warms an Expo development build onto its dev server, so a cold start never rests on the dev launcher', async () => {
+    const h = harness({ device: 'iPhone 16e', launchArguments: ['-e2e', 'YES'], expoDevClient: 'http://localhost:8081' });
+    await h.prepare({ runId: 'run-1', targetName: 'ios', projectRoot: PROJECT_ROOT, slots: 1, env: {}, signal: new AbortController().signal, log: () => undefined });
+    expect(h.fake.lastArgs('apps.open')).toEqual({
+      app: 'Settings',
+      platform: 'ios',
+      device: 'iPhone 16e',
+      launchArgs: ['--initialUrl', 'http://localhost:8081', '-EXDevMenuShowsAtLaunch', 'NO', '-EXDevMenuIsOnboardingFinished', 'YES', '-EXDevMenuShowFloatingActionButton', 'NO'],
+    });
+  });
+
   it('logs an app that does not open in prepare instead of failing the run; a device that cannot boot does fail it', async () => {
     const h = harness({ device: 'iPhone 16e' });
     h.fake.respond('apps.open', () => {

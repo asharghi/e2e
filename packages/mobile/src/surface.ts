@@ -56,11 +56,11 @@ import {
   type ProjectedSnapshot,
   type RawNode,
 } from './nodes.ts';
-import { DEVICE_PERMISSIONS, type AgentDeviceClient, type ClientFactory, type DevicePermission, type LaunchPermissions, type MobileOptions, type MobilePlatform, type PermissionState } from './options.ts';
+import { DEVICE_PERMISSIONS, type AgentDeviceClient, type ClientFactory, type DevicePermission, type LaunchPermissions, type MobileOptions, type PermissionState } from './options.ts';
 import { maskPng } from './png.ts';
 import { deviceLabel, pinnedApp, type SlotBinding } from './bindings.ts';
 import { assertAppId } from './links.ts';
-import { DevicePool, deviceSelection, type DeviceSelection } from './pool.ts';
+import { DevicePool, deviceSelection, expoDevClientArguments, type DeviceSelection } from './pool.ts';
 import { recordLease, travelledLease, type DeviceLease, type RecordingDeviceProvider } from './provider.ts';
 import {
   invalidState,
@@ -328,23 +328,6 @@ function transitionMs(transition: MobileOptions['transition']): number {
     throw new ConfigurationError('INVALID_CONFIG', 'mobile: `transition` must be a non-negative integer of milliseconds');
   }
   return budget;
-}
-
-/**
- * Resolves the `expoDevClient` option to the launch arguments of a fresh
- * launch. expo-dev-launcher loads the URL after `--initialUrl` instead of
- * showing the launcher; the `-EXDevMenu…` pairs land in the argument domain,
- * which outranks the defaults expo-dev-menu registers.
- */
-function expoDevClientArguments(url: MobileOptions['expoDevClient'], platform: MobilePlatform): readonly string[] {
-  if (url === undefined) return [];
-  if (platform !== 'ios') {
-    throw new ConfigurationError('INVALID_CONFIG', 'mobile: `expoDevClient` runs on iOS simulators only');
-  }
-  if (typeof url !== 'string' || !URL.canParse(url) || !/^https?:$/.test(new URL(url).protocol)) {
-    throw new ConfigurationError('INVALID_CONFIG', `mobile: \`expoDevClient\` must be the dev server's http(s) URL, got ${JSON.stringify(url)}`);
-  }
-  return ['--initialUrl', url, '-EXDevMenuShowsAtLaunch', 'NO', '-EXDevMenuIsOnboardingFinished', 'YES', '-EXDevMenuShowFloatingActionButton', 'NO'];
 }
 
 /** Resolves the `settle` option: the default window, a custom one, or no wait at all. */

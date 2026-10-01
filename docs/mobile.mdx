@@ -134,8 +134,10 @@ export default {
 
 The first launch waits for the dev server to bundle the app; a test's first
 check may need a longer timeout than the rest. The options are launch
-arguments that come before the target's and the test's own; a
-foreground-only open and other apps take none. Android is not supported:
+arguments that come before the target's and the test's own. The warm-up
+open in `prepare` takes them too, so a test that never calls `app.open()`
+still starts on the dev server; other foreground-only opens and other apps
+take none. Android is not supported:
 open the server there with `device.openLink` and the build's
 `expo-development-client` link.
 
