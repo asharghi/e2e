@@ -60,7 +60,7 @@ import { DEVICE_PERMISSIONS, type AgentDeviceClient, type ClientFactory, type De
 import { maskPng } from './png.ts';
 import { deviceLabel, pinnedApp, type SlotBinding } from './bindings.ts';
 import { assertAppId } from './links.ts';
-import { DevicePool, deviceSelection, expoDevClientArguments, type DeviceSelection } from './pool.ts';
+import { DevicePool, deviceSelection, type DeviceSelection } from './pool.ts';
 import { recordLease, travelledLease, type DeviceLease, type RecordingDeviceProvider } from './provider.ts';
 import {
   invalidState,
@@ -290,7 +290,6 @@ const MOBILE_OPTION_KEYS: readonly string[] = Object.keys({
   settle: true,
   transition: true,
   videoTouches: true,
-  expoDevClient: true,
 } satisfies Record<keyof MobileOptions, true>);
 
 /** Every state a permission takes, kept equal to `PermissionState` by the compiler. */
@@ -387,8 +386,6 @@ export class AgentDeviceSurface {
   private latestIndex: readonly ProjectedNode[] | undefined;
   /** Budget a control that came with the last action gets to finish arriving; see DEFAULT_TRANSITION_MS. */
   private readonly transitionMs: number;
-  /** Launch arguments every fresh launch of the pinned app leads with: an Expo development build's, else none. */
-  private readonly devClientArguments: readonly string[];
   /**
    * The screen's logical size as last learned from a snapshot with geometry
    * or from the device itself, so a snapshot without geometry (an empty
@@ -405,7 +402,6 @@ export class AgentDeviceSurface {
     this.pool = new DevicePool(options, createClient);
     this.settleOptions = settleOptions(options.settle);
     this.transitionMs = transitionMs(options.transition);
-    this.devClientArguments = expoDevClientArguments(options.expoDevClient, options.platform);
   }
 
   /** Whether the target pins an app for `app.open()`, `app.restart()`, and `app.clearState()` to launch. */
@@ -694,9 +690,7 @@ export class AgentDeviceSurface {
     // app. A foreground-only open of a running app takes no arguments, and a
     // permission change there would terminate the app it means to keep.
     const configured = relaunch && app === this.pinnedApp;
-    const requested = options.launchArguments ?? (configured ? this.app.launchArguments : undefined);
-    // A development build has no JavaScript of its own to run, so a test's own arguments do not replace the dev server's.
-    const launchArguments = configured && this.devClientArguments.length > 0 ? [...this.devClientArguments, ...(requested ?? [])] : requested;
+    const launchArguments = options.launchArguments ?? (configured ? this.app.launchArguments : undefined);
     const permissions = options.permissions ?? (configured ? this.app.permissions : undefined);
     if (permissions !== undefined) await this.presetPermissions(app, permissions, signal);
     await this.open(app, relaunch, launchArguments, signal);

@@ -125,13 +125,6 @@ export interface MobileOptions {
    * such as EAS Simulators' can outlast `cleanupTimeout`.
    */
   readonly videoTouches?: boolean | undefined;
-  /**
-   * The dev server an Expo development build (`expo-dev-client`) loads, such
-   * as `http://localhost:8081`. iOS simulators only. Every fresh launch of
-   * the pinned app opens it instead of the dev launcher, with the dev menu,
-   * its onboarding sheet, and its floating action button off.
-   */
-  readonly expoDevClient?: string | undefined;
 }
 
 /** A permission's state: held, refused, or not asked for yet, so the OS asks again. */

@@ -278,10 +278,12 @@ export default {
   `app.launchArguments` and `app.permissions` ride every fresh launch:
   arguments reach the app process (iOS) or `am start` (Android), permissions
   are set first.
-- Expo development build on an iOS simulator: `mobile({ platform: 'ios',
-  expoDevClient: 'http://localhost:8081' })` loads that dev server on every
-  fresh launch, dev menu off; `app.command` (`npx expo start --port 8081`)
-  with `readyUrl: 'http://localhost:8081/status'` starts it.
+- Expo development build on an iOS simulator: `app.launchArguments:
+  ['--initialUrl', 'http://localhost:8081', '-EXDevMenuShowsAtLaunch', 'NO',
+  '-EXDevMenuIsOnboardingFinished', 'YES', '-EXDevMenuShowFloatingActionButton',
+  'NO']` loads that dev server on every fresh launch, dev menu off;
+  `app.command` (`npx expo start --port 8081`) with `readyUrl:
+  'http://localhost:8081/status'` starts it.
 - One worker per device. No `device`: every booted simulator or emulator of
   the platform is the pool, up to `workers` (none booted: agent-device boots
   one); one `device`: one worker whatever `workers` says; a list (`device:

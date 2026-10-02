@@ -129,23 +129,6 @@ class BootedDevices implements DeviceSource {
   }
 }
 
-/**
- * Resolves the `expoDevClient` option to the launch arguments of a fresh
- * launch. expo-dev-launcher loads the URL after `--initialUrl` instead of
- * showing the launcher; the `-EXDevMenu…` pairs land in the argument domain,
- * which outranks the defaults expo-dev-menu registers.
- */
-export function expoDevClientArguments(url: MobileOptions['expoDevClient'], platform: MobilePlatform): readonly string[] {
-  if (url === undefined) return [];
-  if (platform !== 'ios') {
-    throw new ConfigurationError('INVALID_CONFIG', 'mobile: `expoDevClient` runs on iOS simulators only');
-  }
-  if (typeof url !== 'string' || !URL.canParse(url) || !/^https?:$/.test(new URL(url).protocol)) {
-    throw new ConfigurationError('INVALID_CONFIG', `mobile: \`expoDevClient\` must be the dev server's http(s) URL, got ${JSON.stringify(url)}`);
-  }
-  return ['--initialUrl', url, '-EXDevMenuShowsAtLaunch', 'NO', '-EXDevMenuIsOnboardingFinished', 'YES', '-EXDevMenuShowFloatingActionButton', 'NO'];
-}
-
 export class DevicePool {
   private readonly source: DeviceSource;
   /** What this process's `prepare` bound, per target: a handle may serve several targets and runs. */
@@ -247,10 +230,8 @@ export class DevicePool {
    * opens the pinned app on it once, so the slot's session is on the app,
    * which the returned binding records for the worker: a permission it
    * presets there needs no open first. A plain foreground open, with none of the engine's
-   * launch options but an Expo development build's, so a cold start loads the
-   * dev server rather than the dev launcher: an app still running from an
-   * earlier run keeps its process either way, and a test's `app.open()`
-   * relaunches it with them.
+   * launch options: an app still running from an earlier run keeps its
+   * process either way, and a test's `app.open()` relaunches it with them.
    * One slot after another, on purpose: workers
    * booting at once in `init` contend for the host and the daemon, and one
    * cold boot pushes the others past `launchTimeout`. Each slot warms under
@@ -291,8 +272,7 @@ export class DevicePool {
         continue;
       }
       try {
-        const launchArgs = expoDevClientArguments(this.options.expoDevClient, this.options.platform);
-        await runCommand(`open ${app}`, () => client.apps.open({ app, ...where, ...(launchArgs.length === 0 ? {} : { launchArgs: [...launchArgs] }) }), info.signal, at);
+        await runCommand(`open ${app}`, () => client.apps.open({ app, ...where }), info.signal, at);
         warmed.push({ ...binding, sessionApp: app });
       } catch (cause) {
         if (info.signal.aborted || isRunnerFailure(cause)) throw cause;
